@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Code Debugger with Auto-completion</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/addon/hint/show-hint.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #output {
+            white-space: pre-wrap;
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        .CodeMirror {
+            border: 1px solid #ddd;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Online Code Debugger</h1>
+    <select id="language" onchange="changeLanguage()">
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+    </select>
+    <textarea id="code"></textarea>
+    <button onclick="debugCode()">Debug</button>
+    <div id="output"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.62.0/addon/hint/anyword-hint.min.js"></script>
+
+    <script>
+        let editor;
+
+        function initializeCodeMirror() {
+            editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+                lineNumbers: true,
+                mode: "python",
+                theme: "default",
+                extraKeys: {"Ctrl-Space": "autocomplete"}
+            });
+
+            editor.on("inputRead", function(editor, change) {
+                if (change.origin !== "+input") return;
+                const cur = editor.getCursor();
+                const token = editor.getTokenAt(cur);
+                if (token.type !== "comment" && token.string.length > 2) {
+                    editor.showHint({completeSingle: false});
+                }
+            });
+        }
+
+        function changeLanguage() {
+            const language = document.getElementById("language").value;
+            editor.setOption("mode", language);
+        }
+
+        async function debugCode() {
+            const code = editor.getValue();
+            const language = document.getElementById("language").value;
+            const outputDiv = document.getElementById("output");
+
+            outputDiv.textContent = 'Debugging...';
+
+            try {
+                console.log('Sending request to /debug');
+                const response = await fetch('/debug', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code, language }),
+                });
+
+                console.log('Received response:', response);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Parsed result:', result);
+
+                outputDiv.textContent = result.output || result.error || 'No output';
+            } catch (error) {
+                console.error('Error:', error);
+                outputDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        window.onload = initializeCodeMirror;
+    </script>
+</body>
+</html>
